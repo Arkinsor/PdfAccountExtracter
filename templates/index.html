@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-primary bg-opacity-75 text-white">
+                <h2 class="mb-0"><i class="fas fa-file-pdf me-2"></i>PDF Bank Statement Parser</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-4 mb-md-0">
+                        <h4 class="card-title">Upload your Bank Statement</h4>
+                        <p class="card-text">This tool parses PDF bank statements and organizes transactions by account number based on statement headers.</p>
+                        <p class="card-text">The parser will identify sections starting with:</p>
+                        <div class="alert alert-secondary">
+                            <i class="fas fa-quote-left me-2"></i>Statement of account for the period of<i class="fas fa-quote-right ms-2"></i>
+                        </div>
+                        <p class="card-text">For each account number, the tool will extract and organize the transactions.</p>
+                        
+                        <div class="mt-4">
+                            <h5>Features:</h5>
+                            <ul class="list-group list-group-flush mb-3">
+                                <li class="list-group-item bg-transparent"><i class="fas fa-check-circle text-success me-2"></i>PDF parsing and text extraction</li>
+                                <li class="list-group-item bg-transparent"><i class="fas fa-check-circle text-success me-2"></i>Identification of account numbers</li>
+                                <li class="list-group-item bg-transparent"><i class="fas fa-check-circle text-success me-2"></i>Recognition of statement headers</li>
+                                <li class="list-group-item bg-transparent"><i class="fas fa-check-circle text-success me-2"></i>Separation of transactions by account</li>
+                                <li class="list-group-item bg-transparent"><i class="fas fa-check-circle text-success me-2"></i>Basic error handling for malformed PDFs</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <form action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                                    <div class="mb-4 text-center py-3">
+                                        <i class="fas fa-cloud-upload-alt fa-4x text-primary mb-3"></i>
+                                        <h5>Upload PDF Bank Statement</h5>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="pdfFile" class="form-label">Select PDF File</label>
+                                        <input class="form-control" type="file" id="pdfFile" name="pdfFile" accept=".pdf" required>
+                                        <div class="invalid-feedback">
+                                            Please select a PDF file.
+                                        </div>
+                                        <div class="form-text">
+                                            <i class="fas fa-info-circle me-1"></i>Only PDF files are supported.
+                                        </div>
+                                    </div>
+
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-upload me-2"></i>Upload and Process
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-light">
+                <small class="text-muted">
+                    <i class="fas fa-shield-alt me-1"></i> Your data is processed securely and not stored permanently on our servers.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

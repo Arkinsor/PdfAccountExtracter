@@ -1,0 +1,63 @@
+/* Custom styles to supplement Bootstrap */
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.footer {
+    margin-top: auto;
+}
+
+/* Subtle hover effect for cards */
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(var(--bs-info-rgb), 0.15);
+}
+
+/* Styling for pre blocks to improve readability */
+pre {
+    background-color: var(--bs-dark);
+    border-radius: 0.25rem;
+    padding: 1rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Ensure tables are more readable */
+.table th {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+}
+
+/* Add subtle border radius to list group items */
+.list-group-item {
+    border-radius: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+/* Enhance raw text display */
+.raw-text-content {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.25rem;
+}
+
+/* Fade in effect for tabs */
+.tab-pane.fade {
+    transition: opacity 0.15s linear;
+}
+
+.tab-pane.fade.show {
+    opacity: 1;
+}
+
+/* Make the file input more styled */
+.form-control:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+}

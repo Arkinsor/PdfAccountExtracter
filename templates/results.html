@@ -1,0 +1,128 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header bg-success bg-opacity-75 text-white d-flex justify-content-between align-items-center">
+                <h2 class="mb-0"><i class="fas fa-file-invoice me-2"></i>Parsed Statement Results</h2>
+                <a href="{{ url_for('index') }}" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i> Back to Upload
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h4>Summary</h4>
+                    <p>Found <strong>{{ accounts_data|length }}</strong> different account(s) in the statement.</p>
+                </div>
+
+                <nav>
+                    <div class="nav nav-tabs mb-3" id="nav-tab" role="tablist">
+                        {% for account_number, data in accounts_data.items() %}
+                            <button class="nav-link {{ 'active' if loop.first else '' }}" 
+                                    id="nav-{{ account_number }}-tab" 
+                                    data-bs-toggle="tab" 
+                                    data-bs-target="#nav-{{ account_number }}" 
+                                    type="button" 
+                                    role="tab" 
+                                    aria-controls="nav-{{ account_number }}" 
+                                    aria-selected="{{ 'true' if loop.first else 'false' }}">
+                                Account {{ account_number }} {{ '(Unknown)' if 'unknown' in account_number else '' }}
+                            </button>
+                        {% endfor %}
+                    </div>
+                </nav>
+                
+                <div class="tab-content" id="nav-tabContent">
+                    {% for account_number, data in accounts_data.items() %}
+                        <div class="tab-pane fade {{ 'show active' if loop.first else '' }}" 
+                             id="nav-{{ account_number }}" 
+                             role="tabpanel" 
+                             aria-labelledby="nav-{{ account_number }}-tab">
+                            
+                            <div class="card mb-4">
+                                <div class="card-header bg-info bg-opacity-25">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0">Account Details</h5>
+                                        {% if not 'unknown' in account_number %}
+                                            <span class="badge bg-primary">Account Number: {{ account_number }}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Unknown Account</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Statement Period:</strong> {{ data.statement_period }}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-4">
+                                <div class="card-header bg-info bg-opacity-25">
+                                    <h5 class="mb-0">Transactions</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if data.transactions %}
+                                        <div class="table-responsive">
+                                            <table class="table table-striped table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Description</th>
+                                                        <th>Amount</th>
+                                                        <th>Balance</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for transaction in data.transactions %}
+                                                        <tr>
+                                                            <td>{{ transaction.date }}</td>
+                                                            <td>{{ transaction.description }}</td>
+                                                            <td>{{ transaction.amount }}</td>
+                                                            <td>{{ transaction.balance }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-warning">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>No transactions detected for this account.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header bg-info bg-opacity-25">
+                                    <h5 class="mb-0">Raw Text Content</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <button class="btn btn-sm btn-outline-primary toggle-raw-text" 
+                                                data-target="raw-text-{{ account_number }}">
+                                            <i class="fas fa-code me-1"></i>Toggle Raw Text
+                                        </button>
+                                    </div>
+                                    <div class="raw-text-content" id="raw-text-{{ account_number }}" style="display: none;">
+                                        <pre class="bg-secondary bg-opacity-10 p-3 rounded"><code>{{ data.raw_text }}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('clear_data') }}" class="btn btn-danger">
+                        <i class="fas fa-trash-alt me-1"></i> Clear Data
+                    </a>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-file-upload me-1"></i> Upload Another Statement
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
