@@ -6,7 +6,7 @@ import tempfile
 import uuid
 from werkzeug.utils import secure_filename
 
-from pdf_parser import parse_pdf, extract_account_numbers, extract_multiple_statements
+from pdf_parser import BankStatementParser
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -53,14 +53,12 @@ def upload_file():
             
             # Parse the PDF
             try:
-                extracted_text = parse_pdf(filepath)
+                parser = BankStatementParser()
+                account_data = parser.parse_pdf(filepath)
                 
-                # Extract multiple statement sections
-                statements = extract_multiple_statements(extracted_text)
-                
-                # Store the statements and full text in session
-                session['statements'] = statements
-                session['raw_text'] = extracted_text
+                # Store the account data in session
+                session['statements'] = [account_data]
+                session['raw_text'] = str(account_data)
                 
                 # Redirect to results page
                 return redirect(url_for('show_results'))
