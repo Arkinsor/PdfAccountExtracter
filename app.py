@@ -6,7 +6,7 @@ import uuid
 from werkzeug.utils import secure_filename
 
 from pdf_parser import parse_pdf
-from transaction_organizer import organize_transactions
+from transaction_organizer import organize_transactions, direct_transaction_extraction
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -55,11 +55,20 @@ def upload_file():
             try:
                 extracted_text = parse_pdf(filepath)
                 
-                # Organize transactions by account
-                accounts_data = organize_transactions(extracted_text)
+                # Extract transactions directly from text - simpler approach
+                transactions = direct_transaction_extraction(extracted_text)
+                
+                # Create a simple data structure for the template
+                accounts_data = {
+                    "transactions": {
+                        "statement_period": "Extracted Transactions",
+                        "transactions": transactions
+                    }
+                }
                 
                 # Store the results in session for display
                 session['accounts_data'] = accounts_data
+                session['raw_text'] = extracted_text  # Store raw text for reference
                 
                 # Redirect to results page
                 return redirect(url_for('show_results'))
