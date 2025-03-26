@@ -86,6 +86,11 @@ def upload_file():
 @app.route('/results')
 def show_results():
     statements = session.get('statements', None)
+    
+    # Debug logging
+    logger.debug(f"Session contents: {session.keys()}")
+    logger.debug(f"Statements data: {statements}")
+    
     if not statements:
         flash('No data available. Please upload a PDF file first.', 'warning')
         return redirect(url_for('index'))
@@ -94,8 +99,12 @@ def show_results():
 
 @app.route('/clear')
 def clear_data():
+    # Clear all session data related to PDF parsing
     session.pop('statements', None)
     session.pop('raw_text', None)
+    session.pop('relevant_text', None)
+    session.pop('accounts_data', None)  # Clear old format data if exists
+    
     flash('Data cleared successfully', 'success')
     return redirect(url_for('index'))
 
