@@ -2,277 +2,300 @@ import pdfplumber
 import logging
 import os
 import re
+from typing import List, Dict, Optional
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def parse_pdf(pdf_path):
-    """
-    Parse a PDF file and extract all text content.
-    
-    Args:
-        pdf_path (str): Path to the PDF file
-        
-    Returns:
-        str: Extracted text from the PDF
-        
-    Raises:
-        FileNotFoundError: If the PDF file does not exist
-        Exception: For any other errors during parsing
-    """
-    if not os.path.exists(pdf_path):
-        logger.error(f"PDF file not found: {pdf_path}")
-        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
-    
-    logger.debug(f"Parsing PDF: {pdf_path}")
-    
-    extracted_text = ""
-    
-    try:
-        with pdfplumber.open(pdf_path) as pdf:
-            # Get number of pages
-            num_pages = len(pdf.pages)
-            logger.debug(f"PDF has {num_pages} pages")
-            
-            # Process each page
-            for i, page in enumerate(pdf.pages):
-                logger.debug(f"Processing page {i+1} of {num_pages}")
-                
-                try:
-                    # Extract text from the page
-                    page_text = page.extract_text()
-                    if page_text:
-                        extracted_text += page_text + "\n\n"
-                    else:
-                        logger.warning(f"No text extracted from page {i+1}")
-                except Exception as e:
-                    logger.error(f"Error extracting text from page {i+1}: {str(e)}")
-                    # Continue with other pages even if one fails
-                    continue
-    
-    except Exception as e:
-        logger.error(f"Error parsing PDF: {str(e)}")
-        raise Exception(f"Error parsing PDF: {str(e)}")
-    
-    if not extracted_text:
-        logger.warning("No text was extracted from the PDF")
-    else:
-        logger.debug(f"Successfully extracted {len(extracted_text)} characters")
-    
-    return extracted_text
 
-def extract_account_numbers(text):
-    """
-    Extract account numbers from the text.
-    This is a helper function that can be used for more specific account number extraction.
-    
-    Args:
-        text (str): Text extracted from the PDF
-        
-    Returns:
-        list: List of extracted account numbers
-    """
-    # Common patterns for account numbers (customize based on actual format)
-    # This is a basic example - modify based on the actual account number format
-    account_patterns = [
-        r'Account\s+Number[:\s]+(\d+[\-\d]*)',  # Account Number: 12345678
-        r'A/C\s+No\.?[:\s]+(\d+[\-\d]*)',       # A/C No.: 12345678
-        r'Account\s+No\.?[:\s]+(\d+[\-\d]*)'    # Account No: 12345678
-    ]
-    
-    account_numbers = []
-    for pattern in account_patterns:
-        matches = re.finditer(pattern, text, re.IGNORECASE)
-        for match in matches:
-            account_number = match.group(1).strip()
-            # Remove any non-alphanumeric characters for consistency
-            account_number = re.sub(r'[^a-zA-Z0-9]', '', account_number)
-            if account_number and account_number not in account_numbers:
-                account_numbers.append(account_number)
-    
-    return account_numbers
+class BankStatementParser:
 
-def extract_transactions(raw_text):
-    """
-    Extract transactions from raw text where each transaction starts with a date.
-    
-    Args:
-        raw_text (str): Raw text containing transaction data
-        
-    Returns:
-        list: List of transaction dictionaries with date, description, amount, and balance
-    """
-    transactions = []
-    lines = raw_text.split('\n')
-    
-    # Date patterns to identify transaction lines
-    date_patterns = [
-        r'^(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})',                        # DD/MM/YYYY or MM/DD/YYYY
-        r'^(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4})',                     # DD-MMM-YYYY
-        r'^(\d{1,2}[.]?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[.]?\s+\d{2,4})'  # DD Jan YYYY
-    ]
-    
-    # Pattern for balance at the end that includes formats like "30,38234.66dr" 
-    balance_pattern = r'([\d,]+\.\d{2}(?:Dr|Cr|dr|cr)?)$'
-    
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-            
-        # Check if line starts with a date
-        is_transaction_line = False
-        date_match = None
-        
+    def __init__(self):
+        self.account_data = {
+            'bank_name': 'Punjab and Sind Bank',
+            'branch': 'Jalandhar SME',
+            'account_number': '',
+            'account_name': '',
+            'address': '',
+            'opening_date': '',
+            'sanction_limit': '',
+            'interest_rate': '',
+            'statement_period': '',
+            'transactions': []
+        }
+
+    def parse_pdf(self, pdf_path: str) -> Dict:
+        """
+        Parse the PDF and extract account information and transactions.
+
+        Args:
+            pdf_path (str): Path to the PDF file
+
+        Returns:
+            dict: Dictionary containing account details and transactions
+        """
+        if not os.path.exists(pdf_path):
+            logger.error(f"PDF file not found: {pdf_path}")
+            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                text = ""
+                for page in pdf.pages:
+                    text += page.extract_text() + "\n"
+
+            self._extract_account_info(text)
+            self.account_data['transactions'] = self._extract_transactions(
+                text)
+
+            logger.info(
+                f"Successfully parsed account statement for {self.account_data['account_name']}"
+            )
+            return self.account_data
+
+        except Exception as e:
+            logger.error(f"Error parsing PDF: {str(e)}")
+            raise
+
+    def _extract_account_info(self, text: str) -> None:
+        """Extract account information from the text."""
+        # Extract account number
+        acct_match = re.search(r'Account No\s*:\s*(\d+)', text)
+        if acct_match:
+            self.account_data['account_number'] = acct_match.group(1)
+
+        # Extract account name
+        name_match = re.search(r'A/C Name\s*:\s*(M/S[^\n]+)', text)
+        if name_match:
+            self.account_data['account_name'] = name_match.group(1).strip()
+
+        # Extract address
+        addr_match = re.search(r'Address\s*:\s*([^\n]+)\s*City', text,
+                               re.DOTALL)
+        if addr_match:
+            self.account_data['address'] = addr_match.group(1).strip()
+
+        # Extract opening date
+        open_match = re.search(r'Open Date\s*:\s*([^\n]+)', text)
+        if open_match:
+            self.account_data['opening_date'] = open_match.group(1).strip()
+
+        # Extract sanction limit
+        limit_match = re.search(r'Sanction Limit\s*:\s*([^\n]+)', text)
+        if limit_match:
+            self.account_data['sanction_limit'] = limit_match.group(1).strip()
+
+        # Extract interest rate
+        rate_match = re.search(r'Interest Rate\s*:\s*([^\n]+)', text)
+        if rate_match:
+            self.account_data['interest_rate'] = rate_match.group(1).strip()
+
+        # Extract statement period
+        period_match = re.search(
+            r'Statement of account for the period of\s*([^\n]+)', text)
+        if period_match:
+            self.account_data['statement_period'] = period_match.group(
+                1).strip()
+
+    def _extract_transactions(self, text: str) -> List[Dict]:
+        """
+        Extract transactions from the bank statement text.
+
+        Args:
+            text (str): Text extracted from the PDF
+
+        Returns:
+            list: List of dictionaries containing transaction details
+        """
+        transactions = []
+        lines = text.split('\n')
+
+        # Find the start of transactions
+        start_idx = 0
+        for i, line in enumerate(lines):
+            if "Statement of account for the period of" in line:
+                start_idx = i + 1
+                break
+
+        # Process each transaction line
+        for line in lines[start_idx:]:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Skip non-transaction lines
+            if (line.startswith(
+                ("Grand Total:", "Please examine", "***END OF STATEMENT***",
+                 "NOTE:", "REPORT!MAILID#")) or "Page No:" in line):
+                continue
+
+            # Check for transaction line (starts with date)
+            date_match = self._match_date(line)
+            if date_match:
+                transaction = self._parse_transaction_line(line, date_match)
+                if transaction:
+                    transactions.append(transaction)
+
+        return transactions
+
+    def _match_date(self, line: str) -> Optional[re.Match]:
+        """Match date patterns at the start of a line."""
+        date_patterns = [
+            r'^(\d{2}-[A-Za-z]{3}-\d{4})',  # DD-MMM-YYYY
+            r'^(\d{2}/\d{2}/\d{4})',  # DD/MM/YYYY
+            r'^(\d{2}-[A-Za-z]{3}-\d{2})',  # DD-MMM-YY
+            r'^(\d{2}-[A-Za-z]{3}-\d{4})'  # DD-MMM-YYYY (duplicate pattern for priority)
+        ]
+
         for pattern in date_patterns:
             match = re.match(pattern, line)
             if match:
-                is_transaction_line = True
-                date_match = match
-                break
-                
-        if is_transaction_line:
-            # Extract the date
-            date = date_match.group(1)
-            
-            # Check if we have a balance at the end (like "30,38234.66dr")
-            balance_match = re.search(balance_pattern, line)
-            balance = None
-            balance_pos = None
-            
-            if balance_match:
-                balance = balance_match.group(1)
-                balance_pos = balance_match.start()
-            
-            # Extract the parts between the date and balance
-            if balance_pos:
-                # Get the content between date and balance
-                mid_content = line[date_match.end():balance_pos].strip()
-                
-                # We need to extract the amount which is typically right before the balance
-                # Let's split by whitespace and look for the amount
-                parts = re.split(r'\s+', mid_content)
-                
-                # The amount is typically right before the balance
-                # But if there are type codes like "T" or "C", they might be right after the date
-                amount = parts[-1] if parts else 'N/A'
-                
-                # Extract description (everything between date and amount)
-                description = ' '.join(parts[:-1]) if len(parts) > 1 else ''
-                
-                # Check if we have a type code (T or C) right after the date
-                type_match = re.match(r'^([TC])\s', mid_content)
-                type_code = ''
-                
-                if type_match:
-                    type_code = type_match.group(1)
-                    # If we found a type code, update the description
-                    description = mid_content[type_match.end():].strip()
-                    if amount in description:
-                        # Remove the amount from the description
-                        description = description.replace(amount, '').strip()
-            else:
-                # If no balance found, just split the line by whitespace
-                parts = re.split(r'\s+', line[date_match.end():].strip())
-                
-                # Look for numbers that might be amounts
-                amount_candidates = []
-                for part in parts:
-                    if re.match(r'[\d,]+\.\d{2}', part):
-                        amount_candidates.append(part)
-                
-                # If we found potential amounts, use the last one as balance and second-to-last as amount
-                if len(amount_candidates) >= 2:
-                    amount = amount_candidates[-2]
-                    balance = amount_candidates[-1]
-                elif len(amount_candidates) == 1:
-                    # Only one numeric value found
-                    balance = amount_candidates[0]
-                    amount = 'N/A'
-                else:
-                    # No numeric values found
-                    amount = 'N/A'
-                    balance = 'N/A'
-                
-                # Extract description (everything that's not the date, amount, or balance)
-                description_parts = []
-                skip_parts = [date]
-                if amount != 'N/A':
-                    skip_parts.append(amount)
-                if balance != 'N/A':
-                    skip_parts.append(balance)
-                
-                for part in parts:
-                    if part not in skip_parts:
-                        description_parts.append(part)
-                
-                description = ' '.join(description_parts)
-            
-            # Create transaction object
-            transaction = {
-                'date': date,
-                'description': description,
-                'amount': amount,
-                'balance': balance if balance else 'N/A'
-            }
-            
-            transactions.append(transaction)
-    
-    return transactions
+                return match
+        return None
 
-def extract_multiple_statements(text):
-    """
-    Extract multiple statement sections from the PDF text.
-    This helps handle PDFs with multiple people's account information.
-    
-    Args:
-        text (str): Text extracted from the PDF
-        
-    Returns:
-        list: List of dictionaries containing statement details for each person
-    """
-    statement_pattern = r'Statement\s+of\s+account\s+for\s+the\s+period\s+of\s+(.*?)(?:\n|$)'
-    statement_matches = list(re.finditer(statement_pattern, text, re.IGNORECASE))
-    
-    statements = []
-    
-    # If we find statement declarations
-    if statement_matches:
-        # Process each statement match and the text that follows it
-        for i, match in enumerate(statement_matches):
-            start_idx = match.end()
-            statement_period = match.group(1).strip()
-            
-            # If this is not the last match, get text until the next statement
-            if i < len(statement_matches) - 1:
-                next_start = statement_matches[i + 1].start()
-                section_text = text[start_idx:next_start].strip()
-            else:
-                # For the last statement, get all remaining text
-                section_text = text[start_idx:].strip()
-            
-            # Extract account numbers from this section
-            account_numbers = extract_account_numbers(section_text)
-            
-            # Extract transactions from this section
-            transactions = extract_transactions(section_text)
-            
-            # Store details for this statement
-            statements.append({
-                "statement_period": statement_period,
-                "account_numbers": account_numbers,
-                "raw_text": section_text,
-                "transactions": transactions
-            })
-    else:
-        # If no statement pattern matches found, treat the entire text as one statement
-        logger.warning("No statement period declarations found, treating as a single statement")
-        statements.append({
-            "statement_period": "Not specified",
-            "account_numbers": extract_account_numbers(text),
-            "raw_text": text,
-            "transactions": extract_transactions(text)
-        })
-    
-    return statements
+    def _parse_transaction_line(self, line: str,
+                                date_match: re.Match) -> Optional[Dict]:
+        """Parse a single transaction line."""
+        date = date_match.group(1)
+        remaining = line[date_match.end():].strip()
+
+        # Split transaction components
+        parts = re.split(r'\s{2,}', remaining)  # Split by multiple spaces
+
+        if len(parts) >= 3:
+            # Format: Description | Amount | Balance
+            description, amount, balance = parts[0], parts[1], parts[2]
+        elif len(parts) == 2:
+            # Format: Description | Amount
+            description, amount = parts[0], parts[1]
+            balance = "N/A"
+        else:
+            # Unusual format
+            description = remaining
+            amount = balance = "N/A"
+
+        # Clean and validate amounts
+        amount = self._clean_amount(amount)
+        balance = self._clean_balance(balance)
+
+        if amount == "N/A" and balance == "N/A":
+            # Skip lines that don't contain financial data
+            return None
+
+        return {
+            'date': date,
+            'description': description,
+            'amount': amount,
+            'balance': balance,
+            'type': self._get_transaction_type(balance)
+        }
+
+    def _clean_amount(self, amount: str) -> str:
+        """Clean and validate amount string."""
+        if amount == "N/A":
+            return amount
+
+        # Remove commas and currency symbols
+        cleaned = re.sub(r'[^\d.]', '', amount)
+
+        # Validate numeric format
+        if not re.match(r'^\d+\.?\d{0,2}$', cleaned):
+            return "N/A"
+
+        return cleaned
+
+    def _clean_balance(self, balance: str) -> str:
+        """Clean and validate balance string."""
+        if balance == "N/A":
+            return balance
+
+        # Extract Dr/Cr indicator
+        dr_cr = ""
+        if 'Dr' in balance:
+            dr_cr = "Dr"
+        elif 'Cr' in balance:
+            dr_cr = "Cr"
+
+        # Remove non-numeric characters except decimal point
+        cleaned = re.sub(r'[^\d.]', '', balance)
+
+        # Validate numeric format
+        if not re.match(r'^\d+\.?\d{0,2}$', cleaned):
+            return "N/A"
+
+        return f"{cleaned} {dr_cr}" if dr_cr else cleaned
+
+    def _get_transaction_type(self, balance: str) -> str:
+        """Determine if transaction is debit or credit."""
+        if 'Dr' in balance:
+            return 'Debit'
+        elif 'Cr' in balance:
+            return 'Credit'
+        return 'N/A'
+
+    def save_to_csv(self, output_file: str) -> None:
+        """
+        Save the transaction data to a CSV file.
+
+        Args:
+            output_file (str): Path to the output CSV file
+        """
+        import csv
+
+        try:
+            with open(output_file, 'w', newline='',
+                      encoding='utf-8') as csvfile:
+                fieldnames = [
+                    'date', 'description', 'amount', 'balance', 'type'
+                ]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+                writer.writeheader()
+                for transaction in self.account_data['transactions']:
+                    writer.writerow(transaction)
+
+            logger.info(f"Transaction data saved to {output_file}")
+        except Exception as e:
+            logger.error(f"Error saving to CSV: {str(e)}")
+            raise
+
+
+def main():
+    # Initialize parser
+    parser = BankStatementParser()
+
+    # Input PDF file path
+    pdf_path = "test3 (1).pdf"
+
+    try:
+        # Parse the PDF
+        account_data = parser.parse_pdf(pdf_path)
+
+        # Print summary
+        print("\nAccount Summary:")
+        print("----------------")
+        print(f"Account Number: {account_data['account_number']}")
+        print(f"Account Name: {account_data['account_name']}")
+        print(f"Statement Period: {account_data['statement_period']}")
+        print(f"Total Transactions: {len(account_data['transactions'])}")
+
+        # Print sample transactions
+        print("\nSample Transactions:")
+        print("-------------------")
+        for i, tx in enumerate(account_data['transactions'][:5]):
+            print(
+                f"{i+1}. {tx['date']} | {tx['description'][:30]}... | {tx['amount']} | {tx['balance']} | {tx['type']}"
+            )
+
+        # Save to CSV
+        csv_path = "transactions.csv"
+        parser.save_to_csv(csv_path)
+        print(f"\nTransactions saved to {csv_path}")
+
+    except Exception as e:
+        print(f"\nError processing PDF: {str(e)}")
+
+
+if __name__ == "__main__":
+    main()
