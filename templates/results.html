@@ -59,10 +59,10 @@
                                                         <tbody>
                                                             {% for transaction in statement.transactions %}
                                                                 <tr>
-                                                                    <td>{{ transaction.date }}</td>
-                                                                    <td>{{ transaction.description }}</td>
-                                                                    <td>{{ transaction.amount }}</td>
-                                                                    <td>{{ transaction.balance }}</td>
+                                                                    <td>{{ transaction['date'] }}</td>
+                                                                    <td>{{ transaction['description'] }}</td>
+                                                                    <td>{{ transaction['amount'] }}</td>
+                                                                    <td>{{ transaction['balance'] }}</td>
                                                                 </tr>
                                                             {% endfor %}
                                                         </tbody>
