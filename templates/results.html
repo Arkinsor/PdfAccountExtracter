@@ -31,18 +31,15 @@
                                      aria-labelledby="heading{{ loop.index }}" 
                                      data-bs-parent="#statementsAccordion">
                                     <div class="accordion-body">
-                                        <!-- Account Numbers -->
+                                        <!-- Account Information -->
                                         <div class="mb-3">
-                                            <h5>Account Numbers:</h5>
-                                            {% if statement.account_numbers %}
-                                                <ul class="list-group mb-3">
-                                                    {% for account_number in statement.account_numbers %}
-                                                        <li class="list-group-item">{{ account_number }}</li>
-                                                    {% endfor %}
-                                                </ul>
-                                            {% else %}
-                                                <p class="text-muted">No account numbers found.</p>
-                                            {% endif %}
+                                            <h5>Account Information:</h5>
+                                            <ul class="list-group mb-3">
+                                                <li class="list-group-item">Account Number: {{ statement.account_number }}</li>
+                                                <li class="list-group-item">Account Name: {{ statement.account_name }}</li>
+                                                <li class="list-group-item">Bank: {{ statement.bank_name }}</li>
+                                                <li class="list-group-item">Branch: {{ statement.branch }}</li>
+                                            </ul>
                                         </div>
                                         
                                         <!-- Transactions Table -->
