@@ -6,7 +6,7 @@ import tempfile
 import uuid
 from werkzeug.utils import secure_filename
 
-from pdf_parser import parse_pdf, extract_account_numbers
+from pdf_parser import parse_pdf, extract_account_numbers, extract_multiple_statements
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -55,36 +55,12 @@ def upload_file():
             try:
                 extracted_text = parse_pdf(filepath)
                 
-                # Extract account numbers from the text
-                account_numbers = extract_account_numbers(extracted_text)
+                # Extract multiple statement sections
+                statements = extract_multiple_statements(extracted_text)
                 
-                # Extract statement period if available
-                statement_period = "Not found"
-                statement_match = re.search(r'Statement\s+of\s+account\s+for\s+the\s+period\s+of\s+(.*?)(?:\n|$)', 
-                                           extracted_text, re.IGNORECASE)
-                if statement_match:
-                    statement_period = statement_match.group(1).strip()
-                    
-                # Extract relevant section after statement period
-                relevant_text = extracted_text
-                if statement_match:
-                    start_idx = statement_match.end()
-                    # Get text after the statement period line
-                    relevant_text = extracted_text[start_idx:].strip()
-                
-                # Create a data structure for the template
-                accounts_data = {
-                    "transactions": {
-                        "statement_period": statement_period,
-                        "account_numbers": account_numbers,
-                        "transactions": []
-                    }
-                }
-                
-                # Store the results in session for display
-                session['accounts_data'] = accounts_data
+                # Store the statements and full text in session
+                session['statements'] = statements
                 session['raw_text'] = extracted_text
-                session['relevant_text'] = relevant_text
                 
                 # Redirect to results page
                 return redirect(url_for('show_results'))
@@ -109,16 +85,16 @@ def upload_file():
 
 @app.route('/results')
 def show_results():
-    accounts_data = session.get('accounts_data', None)
-    if not accounts_data:
+    statements = session.get('statements', None)
+    if not statements:
         flash('No data available. Please upload a PDF file first.', 'warning')
         return redirect(url_for('index'))
     
-    return render_template('results.html', accounts_data=accounts_data)
+    return render_template('results.html', statements=statements)
 
 @app.route('/clear')
 def clear_data():
-    session.pop('accounts_data', None)
+    session.pop('statements', None)
     session.pop('raw_text', None)
     flash('Data cleared successfully', 'success')
     return redirect(url_for('index'))

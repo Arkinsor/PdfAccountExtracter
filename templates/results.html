@@ -11,18 +11,77 @@
                 </a>
             </div>
             <div class="card-body">
-                <div class="card">
+                <!-- Multiple Statements Sections -->
+                {% if statements %}
+                    <h4 class="mb-3">Account Information for Multiple People</h4>
+                    
+                    <div class="accordion" id="statementsAccordion">
+                        {% for statement in statements %}
+                            <div class="accordion-item mb-3">
+                                <h2 class="accordion-header" id="heading{{ loop.index }}">
+                                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" 
+                                            data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" 
+                                            aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" 
+                                            aria-controls="collapse{{ loop.index }}">
+                                        Statement Period: {{ statement.statement_period }}
+                                    </button>
+                                </h2>
+                                <div id="collapse{{ loop.index }}" 
+                                     class="accordion-collapse collapse {% if loop.first %}show{% endif %}" 
+                                     aria-labelledby="heading{{ loop.index }}" 
+                                     data-bs-parent="#statementsAccordion">
+                                    <div class="accordion-body">
+                                        <!-- Account Numbers -->
+                                        <div class="mb-3">
+                                            <h5>Account Numbers:</h5>
+                                            {% if statement.account_numbers %}
+                                                <ul class="list-group mb-3">
+                                                    {% for account_number in statement.account_numbers %}
+                                                        <li class="list-group-item">{{ account_number }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                <p class="text-muted">No account numbers found.</p>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Raw Data Section -->
+                                        <div class="mb-3">
+                                            <h5>Raw Data:</h5>
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <button class="btn btn-primary mb-3" 
+                                                            onclick="toggleRawText('raw-text-{{ loop.index }}')">
+                                                        Show/Hide Raw Text
+                                                    </button>
+                                                    <div id="raw-text-{{ loop.index }}" style="display: none;">
+                                                        <pre class="bg-light p-3 rounded"><code>{{ statement.raw_text }}</code></pre>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="alert alert-warning">No statements found in the PDF.</p>
+                {% endif %}
+                
+                <!-- Full Raw Text Content -->
+                <div class="card mt-4">
                     <div class="card-header">
-                        <h5 class="mb-0">Raw Text Content</h5>
+                        <h5 class="mb-0">Complete Raw Text Content</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
                             <button class="btn btn-primary" 
-                                    onclick="toggleRawText()">
-                                Show/Hide Raw Text
+                                    onclick="toggleRawText('full-raw-text')">
+                                Show/Hide Complete Raw Text
                             </button>
                         </div>
-                        <div id="raw-text-content">
+                        <div id="full-raw-text" style="display: none;">
                             <pre class="bg-light p-3 rounded"><code>{{ session.get('raw_text', 'No raw text available') }}</code></pre>
                         </div>
                     </div>
@@ -43,8 +102,8 @@
 </div>
 
 <script>
-function toggleRawText() {
-    const content = document.getElementById('raw-text-content');
+function toggleRawText(elementId) {
+    const content = document.getElementById(elementId);
     if (content.style.display === 'none') {
         content.style.display = 'block';
     } else {

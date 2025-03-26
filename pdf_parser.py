@@ -92,3 +92,54 @@ def extract_account_numbers(text):
                 account_numbers.append(account_number)
     
     return account_numbers
+
+def extract_multiple_statements(text):
+    """
+    Extract multiple statement sections from the PDF text.
+    This helps handle PDFs with multiple people's account information.
+    
+    Args:
+        text (str): Text extracted from the PDF
+        
+    Returns:
+        list: List of dictionaries containing statement details for each person
+    """
+    statement_pattern = r'Statement\s+of\s+account\s+for\s+the\s+period\s+of\s+(.*?)(?:\n|$)'
+    statement_matches = list(re.finditer(statement_pattern, text, re.IGNORECASE))
+    
+    statements = []
+    
+    # If we find statement declarations
+    if statement_matches:
+        # Process each statement match and the text that follows it
+        for i, match in enumerate(statement_matches):
+            start_idx = match.end()
+            statement_period = match.group(1).strip()
+            
+            # If this is not the last match, get text until the next statement
+            if i < len(statement_matches) - 1:
+                next_start = statement_matches[i + 1].start()
+                section_text = text[start_idx:next_start].strip()
+            else:
+                # For the last statement, get all remaining text
+                section_text = text[start_idx:].strip()
+            
+            # Extract account numbers from this section
+            account_numbers = extract_account_numbers(section_text)
+            
+            # Store details for this statement
+            statements.append({
+                "statement_period": statement_period,
+                "account_numbers": account_numbers,
+                "raw_text": section_text
+            })
+    else:
+        # If no statement pattern matches found, treat the entire text as one statement
+        logger.warning("No statement period declarations found, treating as a single statement")
+        statements.append({
+            "statement_period": "Not specified",
+            "account_numbers": extract_account_numbers(text),
+            "raw_text": text
+        })
+    
+    return statements
