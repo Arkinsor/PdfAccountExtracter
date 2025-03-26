@@ -95,6 +95,151 @@ def organize_transactions(text):
     
     return dict(accounts_data)
 
+def direct_transaction_extraction(text):
+    """
+    Extract transactions directly from text without relying on specific headers.
+    This approach uses date patterns at the beginning of lines as transaction indicators
+    and handles formats where amounts and balances might be on separate lines.
+    
+    Args:
+        text (str): Text to extract transactions from
+        
+    Returns:
+        list: List of transaction dictionaries
+    """
+    transactions = []
+    lines = text.split('\n')
+    
+    # Skip the statement period line if it exists
+    start_idx = 0
+    for i, line in enumerate(lines):
+        if "Statement of account for the period of" in line:
+            start_idx = i + 1
+            break
+    
+    # Common date patterns at the beginning of transaction lines
+    date_patterns = [
+        r'^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',      # DD/MM/YYYY, MM/DD/YYYY
+        r'^(\d{2}[./-]\d{2}[./-]\d{2,4})',        # DD.MM.YYYY
+        r'^(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})', # 10 Jan 2023
+        r'^(\d{4}[/-]\d{1,2}[/-]\d{1,2})'         # YYYY-MM-DD
+    ]
+    
+    current_transaction = None
+    
+    for i in range(start_idx, len(lines)):
+        line = lines[i].strip()
+        
+        if not line:  # Skip empty lines
+            continue
+            
+        # Check for line starting with a date pattern
+        date_match = None
+        for pattern in date_patterns:
+            match = re.search(pattern, line, re.IGNORECASE)
+            if match:
+                date_match = match
+                break
+                
+        if date_match:
+            # If we find a new date and have a current transaction, save it first
+            if current_transaction:
+                transactions.append(current_transaction)
+                
+            # Start a new transaction
+            date = date_match.group(1)
+            remaining_text = line[date_match.end():].strip()
+            
+            # Try to identify description, amount, and balance in the remaining text
+            # First check if there's a transaction type indicator like 'T' or 'C'
+            type_match = re.search(r'^\s*([TC])\s+', remaining_text)
+            type_code = ""
+            
+            if type_match:
+                type_code = type_match.group(1)
+                remaining_text = remaining_text[type_match.end():].strip()
+            
+            # Split the remaining text by multiple spaces or look for numeric values
+            parts = re.split(r'\s{2,}', remaining_text)
+            
+            # Look for amount and balance - these are often the last numeric values
+            amount = "N/A"
+            balance = "N/A"
+            description = remaining_text
+            
+            # Check for numeric values
+            amount_candidates = []
+            for part in parts:
+                # Match for common number formats
+                if (re.search(r'[\$£€]?[\-+]?[\d,]+\.\d{2}', part) or  # $123.45
+                    re.search(r'[\-+]?[\d,]+\.\d{2}', part) or         # 123.45
+                    re.search(r'[\$£€]?[\-+]?[\d,]+', part) or         # $123
+                    re.search(r'[\-+]?[\d,]+', part)):                 # 123
+                    amount_candidates.append(part)
+            
+            # Determine description and financial values
+            if len(amount_candidates) >= 2:
+                # Often the last two values are amount and balance
+                amount = amount_candidates[-2]
+                balance = amount_candidates[-1]
+                
+                # Reconstruct description by removing these values
+                desc_parts = []
+                for part in parts:
+                    if part not in amount_candidates[-2:]:
+                        desc_parts.append(part)
+                if desc_parts:
+                    description = ' '.join(desc_parts)
+            elif len(amount_candidates) == 1:
+                # Just one numeric value found
+                amount = amount_candidates[0]
+                
+                # Reconstruct description by removing the amount
+                desc_parts = []
+                for part in parts:
+                    if part != amount:
+                        desc_parts.append(part)
+                if desc_parts:
+                    description = ' '.join(desc_parts)
+            
+            # Create the transaction record
+            current_transaction = {
+                "date": date,
+                "type": type_code,
+                "description": description,
+                "amount": amount,
+                "balance": balance
+            }
+            
+        elif current_transaction:
+            # This might be a continuation line
+            # Check if it's a balance line with just numbers
+            if re.search(r'^[\-+]?[\d,]+\.\d{2}\s+[\-+]?[\d,]+\.\d{2}[DrCr]*$', line):
+                # This is likely just amount and balance
+                values = re.findall(r'[\-+]?[\d,]+\.\d{2}', line)
+                if len(values) >= 2:
+                    current_transaction["amount"] = values[0]
+                    balance_value = values[1]
+                    
+                    # Check for Dr/Cr indicators
+                    dr_cr_match = re.search(r'(Dr|Cr)$', line)
+                    if dr_cr_match:
+                        balance_value += " " + dr_cr_match.group(1)
+                    
+                    current_transaction["balance"] = balance_value
+            elif re.search(r'^[\-+]?[\d,]+\.\d{2}$', line) and current_transaction["amount"] == "N/A":
+                # Just a single amount
+                current_transaction["amount"] = line
+            else:
+                # Likely a description continuation
+                current_transaction["description"] += " " + line
+    
+    # Add the last transaction if there is one
+    if current_transaction:
+        transactions.append(current_transaction)
+        
+    return transactions
+
 def extract_transactions_from_section(section_text):
     """
     Extract transactions from a section of text.
