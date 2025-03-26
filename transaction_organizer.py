@@ -113,9 +113,23 @@ def extract_transactions_from_section(section_text):
     statement_pattern = re.compile(r'Statement\s+of\s+account\s+for\s+the\s+period\s+of\s+(.*?)(?:\n|$)', re.IGNORECASE)
     statement_match = statement_pattern.search(section_text)
     
-    if not statement_match:
+    # Direct transaction detection mode - for cases where there might not be standard headers
+    # This is particularly useful for formats where transactions follow immediately after statement period
+    if statement_match or section_text.strip().startswith("Statement of account for the period of"):
+        logger.debug("Statement period line found, attempting direct transaction detection")
+        
+        # Try direct date-based transaction detection
+        direct_transactions = direct_transaction_extraction(section_text)
+        if direct_transactions:
+            logger.info(f"Successfully extracted {len(direct_transactions)} transactions directly")
+            return direct_transactions
+    else:
         logger.warning("Statement period line not found in section text")
-        return transactions
+        # Even if no statement period found, try direct extraction as a fallback
+        direct_transactions = direct_transaction_extraction(section_text)
+        if direct_transactions:
+            logger.info(f"Extracted {len(direct_transactions)} transactions using fallback method")
+            return direct_transactions
     
     # Split by lines to process each line after the statement period
     lines = section_text.split('\n')
